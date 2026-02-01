@@ -94,106 +94,87 @@
     </main>
 
 <script>
-        gsap.registerPlugin(ScrollTrigger);
+    gsap.registerPlugin(ScrollTrigger);
 
-        let audioCtx, filter, masterGain;
-        let oscillators = [];
-        let isStarted = false;
+    let audio; // HTMLAudioElement
+    let audioCtx, source, filter;
+    let isStarted = false;
 
-        const initAudio = () => {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            
-            // 1. マスターボリューム設定
-            masterGain = audioCtx.createGain();
-            masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
-            masterGain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 2); // 2秒かけてフェードイン
+    // 1. オーディオの初期化
+    const initAudio = () => {
+        // 美しい森の環境音（mp3）をロード
+        audio = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'); // サンプル曲
+        // もし「森の音」に特化するなら、こちらのような環境音素材URLに差し替えてもOKです
+        audio.src = 'https://assets.mixkit.co/music/preview/mixkit-mysterious-forest-ambience-1214.mp3';
+        audio.loop = true;
+        audio.crossOrigin = "anonymous";
 
-            // 2. フィルター設定（ここがノイズの原因でした）
-            filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass';
-            // 初期値を高めに設定（澄んだ音）
-            filter.frequency.setValueAtTime(2000, audioCtx.currentTime);
-            filter.Q.setValueAtTime(0.7, audioCtx.currentTime); // 癖のない響きに
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        source = audioCtx.createMediaElementSource(audio);
+        filter = audioCtx.createBiquadFilter();
 
-            // 3. 3つの正弦波を重ねて和音を作る（不快な倍音をカット）
-            const frequencies = [130.81, 164.81, 196.00]; // C, E, G の和音
-            frequencies.forEach(f => {
-                const osc = audioCtx.createOscillator();
-                osc.type = 'sine'; // 濁りのないサイン波
-                osc.frequency.setValueAtTime(f, audioCtx.currentTime);
-                
-                const g = audioCtx.createGain();
-                g.gain.value = 0.3;
-                
-                osc.connect(g);
-                g.connect(filter);
-                osc.start();
-                oscillators.push(osc);
-            });
+        // フィルター設定：最初は全域を通す
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(20000, audioCtx.currentTime);
 
-            filter.connect(masterGain);
-            masterGain.connect(audioCtx.destination);
-        };
+        source.connect(filter);
+        filter.connect(audioCtx.destination);
 
-        const playMagicSound = () => {
-            if(!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(1500, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.8);
-            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
-            osc.connect(g);
-            g.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.8);
-        };
+        audio.play();
+    };
 
-        const initVisuals = () => {
-            // パララックス演出
-            gsap.to("#layer-bg", { y: "15%", ease: "none", scrollTrigger: { scrub: true } });
-            gsap.to("#layer-mid", { y: "-20%", ease: "none", scrollTrigger: { scrub: true } });
-            gsap.to("#layer-fg", { y: "-50%", ease: "none", scrollTrigger: { scrub: true } });
+    // 2. スクロールに合わせた音色の変化
+    const initVisuals = () => {
+        // パララックス
+        gsap.to("#layer-bg", { y: "15%", ease: "none", scrollTrigger: { scrub: true } });
+        gsap.to("#layer-mid", { y: "-20%", ease: "none", scrollTrigger: { scrub: true } });
+        gsap.to("#layer-fg", { y: "-50%", ease: "none", scrollTrigger: { scrub: true } });
 
-            // スクロールと音の連動（ここを滑らかに修正）
-            ScrollTrigger.create({
-                trigger: "body",
-                start: "top top",
-                end: "bottom bottom",
-                scrub: 0.5, // スクロールに少しの慣性を持たせる
-                onUpdate: (self) => {
-                    if (filter && audioCtx) {
-                        // 進行度に応じて 400Hz 〜 3000Hz の間で変化
-                        // setTargetAtTimeを使うことで、書き換えノイズを完全に除去
-                        const targetFreq = 400 + ( (1 - self.progress) * 2600 );
-                        filter.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.05);
-                    }
+        // スクロールで「こもった音」にしていく
+        ScrollTrigger.create({
+            trigger: "body",
+            start: "top top",
+            end: "bottom bottom",
+            scrub: true,
+            onUpdate: (self) => {
+                if (filter) {
+                    // 上部: 20000Hz (クリア) -> 下部: 300Hz (深くこもった音)
+                    const freq = 300 + ( (1 - self.progress) * 19700 );
+                    filter.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
                 }
-            });
-
-            gsap.utils.toArray('.scroll-reveal').forEach(el => {
-                gsap.from(el, {
-                    opacity: 0, y: 30, duration: 1,
-                    scrollTrigger: { trigger: el, start: "top 85%", toggleActions: "play none none reverse" }
-                });
-            });
-        };
-
-        document.getElementById('start-btn').addEventListener('click', () => {
-            if (!isStarted) {
-                initAudio();
-                initVisuals();
-                gsap.to("#start-overlay", { opacity: 0, duration: 1, onComplete: () => {
-                    document.getElementById('start-overlay').style.display = 'none';
-                }});
-                isStarted = true;
             }
         });
 
-        document.querySelector('.magic-button').addEventListener('mouseenter', playMagicSound);
-    </script>
+        // テキストの表示
+        gsap.utils.toArray('.scroll-reveal').forEach(el => {
+            gsap.from(el, {
+                opacity: 0, y: 30, duration: 1,
+                scrollTrigger: { trigger: el, start: "top 80%", toggleActions: "play none none reverse" }
+            });
+        });
+    };
+
+    // 開始イベント
+    document.getElementById('start-btn').addEventListener('click', () => {
+        if (!isStarted) {
+            initAudio();
+            initVisuals();
+            gsap.to("#start-overlay", { opacity: 0, duration: 1, onComplete: () => {
+                document.getElementById('start-overlay').style.display = 'none';
+            }});
+            isStarted = true;
+        }
+    });
+
+    // 魔法のボタンSE（ここもmp3にするとさらに綺麗です）
+    document.querySelector('.magic-button').addEventListener('mouseenter', () => {
+        const ping = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
+        ping.volume = 0.2;
+        ping.play();
+    });
+</script>
 </body>
 
 </html>
+
 
