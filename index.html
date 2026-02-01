@@ -94,54 +94,63 @@
     </main>
 
     <script>
-        gsap.registerPlugin(ScrollTrigger);
-
-        // --- Web Audio API Setup ---
-        let audioCtx, oscillator, filter, lfo;
+// --- Web Audio API Setup (修正版) ---
+        let audioCtx, filter;
+        let oscillators = [];
         let isStarted = false;
 
         const initAudio = () => {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             
-            // 1. 環境音（ドローン音）の生成
-            oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
+            // メインフィルター（全体の音色を整える）
             filter = audioCtx.createBiquadFilter();
-
-            oscillator.type = 'sawtooth';
-            oscillator.frequency.setValueAtTime(55, audioCtx.currentTime); // 低いAの音
-
             filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(2000, audioCtx.currentTime);
-            filter.Q.setValueAtTime(5, audioCtx.currentTime);
+            filter.frequency.setValueAtTime(1500, audioCtx.currentTime);
+            filter.Q.setValueAtTime(1, audioCtx.currentTime);
 
-            gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            // 1秒かけてゆっくり音を出す（クリック時のノイズ防止）
+            masterGain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 1);
 
-            oscillator.connect(filter);
-            filter.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
+            // 神秘的な和音（低いド・ソ・ド）を生成
+            [130.81, 196.00, 261.63].forEach(freq => {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine'; // 柔らかな波形
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                const oscGain = audioCtx.createGain();
+                oscGain.gain.value = 0.3; // 各音のバランス
 
-            oscillator.start();
+                osc.connect(oscGain);
+                oscGain.connect(filter);
+                oscillators.push(osc);
+                osc.start();
+            });
+
+            filter.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
         };
 
-        // 魔法の効果音（シャリィィン）
+        // 魔法の効果音も「キラキラ感」を強調
         const playMagicSound = () => {
             if(!audioCtx) return;
             const osc = audioCtx.createOscillator();
             const g = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(2400, audioCtx.currentTime + 0.1);
             
-            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(3000, audioCtx.currentTime + 0.4);
+            
+            g.gain.setValueAtTime(0, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.05);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
             
             osc.connect(g);
             g.connect(audioCtx.destination);
             osc.start();
             osc.stop(audioCtx.currentTime + 0.5);
         };
-
         // --- Animations ---
         const initVisuals = () => {
             // パララックス制御
@@ -206,6 +215,8 @@
         // 魔法のボタンにインタラクションを追加
         document.querySelector('.magic-button').addEventListener('mouseenter', playMagicSound);
 
+
     </script>
 </body>
+
 </html>
