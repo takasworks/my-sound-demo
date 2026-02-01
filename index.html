@@ -96,26 +96,28 @@
 <script>
     gsap.registerPlugin(ScrollTrigger);
 
-    let audio; // HTMLAudioElement
+    let audio; 
     let audioCtx, source, filter;
     let isStarted = false;
 
-    // 1. オーディオの初期化
+    // 1. オーディオの初期化：ピアノの曲をロード
     const initAudio = () => {
-        // 美しい森の環境音（mp3）をロード
-        audio = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'); // サンプル曲
-        // もし「森の音」に特化するなら、こちらのような環境音素材URLに差し替えてもOKです
-        audio.src = 'https://assets.mixkit.co/music/preview/mixkit-mysterious-forest-ambience-1214.mp3';
+        // 著作権フリーの非常に穏やかで優しいピアノ曲（森のイメージ）
+        const pianoUrl = 'https://assets.mixkit.co/music/preview/mixkit-serene-view-443.mp3';
+        
+        audio = new Audio(pianoUrl);
         audio.loop = true;
         audio.crossOrigin = "anonymous";
+        audio.volume = 0.5;
 
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         source = audioCtx.createMediaElementSource(audio);
         filter = audioCtx.createBiquadFilter();
 
-        // フィルター設定：最初は全域を通す
+        // フィルター設定：最初はクリアな音
         filter.type = 'lowpass';
         filter.frequency.setValueAtTime(20000, audioCtx.currentTime);
+        filter.Q.setValueAtTime(1, audioCtx.currentTime);
 
         source.connect(filter);
         filter.connect(audioCtx.destination);
@@ -123,58 +125,66 @@
         audio.play();
     };
 
-    // 2. スクロールに合わせた音色の変化
+    // 2. 視覚と音の連動
     const initVisuals = () => {
-        // パララックス
-        gsap.to("#layer-bg", { y: "15%", ease: "none", scrollTrigger: { scrub: true } });
-        gsap.to("#layer-mid", { y: "-20%", ease: "none", scrollTrigger: { scrub: true } });
-        gsap.to("#layer-fg", { y: "-50%", ease: "none", scrollTrigger: { scrub: true } });
+        // パララックス：奥行きを出す
+        gsap.to("#layer-bg", { y: "20%", ease: "none", scrollTrigger: { scrub: true } });
+        gsap.to("#layer-mid", { y: "-10%", ease: "none", scrollTrigger: { scrub: true } });
+        gsap.to("#layer-fg", { y: "-40%", ease: "none", scrollTrigger: { scrub: true } });
 
-        // スクロールで「こもった音」にしていく
+        // スクロール位置に応じてピアノの音を「優しくこもらせる」
         ScrollTrigger.create({
             trigger: "body",
             start: "top top",
             end: "bottom bottom",
             scrub: true,
             onUpdate: (self) => {
-                if (filter) {
-                    // 上部: 20000Hz (クリア) -> 下部: 300Hz (深くこもった音)
-                    const freq = 300 + ( (1 - self.progress) * 19700 );
+                if (filter && audioCtx) {
+                    // 上部：20,000Hz (クリアなピアノ)
+                    // 下部：500Hz (深海や神殿の中にいるような、こもった優しい音)
+                    const freq = 500 + ((1 - self.progress) * 19500);
                     filter.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
                 }
             }
         });
 
-        // テキストの表示
+        // テキストのふわっとした表示
         gsap.utils.toArray('.scroll-reveal').forEach(el => {
             gsap.from(el, {
-                opacity: 0, y: 30, duration: 1,
-                scrollTrigger: { trigger: el, start: "top 80%", toggleActions: "play none none reverse" }
+                opacity: 0, y: 40, duration: 1.5,
+                scrollTrigger: { trigger: el, start: "top 85%", toggleActions: "play none none reverse" }
             });
         });
     };
 
-    // 開始イベント
+    // ボタンクリックで開始
     document.getElementById('start-btn').addEventListener('click', () => {
         if (!isStarted) {
             initAudio();
             initVisuals();
-            gsap.to("#start-overlay", { opacity: 0, duration: 1, onComplete: () => {
-                document.getElementById('start-overlay').style.display = 'none';
-            }});
+            // オーバーレイを消す
+            gsap.to("#start-overlay", { 
+                opacity: 0, 
+                duration: 1.5, 
+                onComplete: () => {
+                    document.getElementById('start-overlay').style.display = 'none';
+                }
+            });
             isStarted = true;
         }
     });
 
-    // 魔法のボタンSE（ここもmp3にするとさらに綺麗です）
+    // ボタンホバー時の魔法の音（これもピアノに合うキラキラした音）
     document.querySelector('.magic-button').addEventListener('mouseenter', () => {
+        if(!audioCtx) return;
         const ping = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
-        ping.volume = 0.2;
+        ping.volume = 0.1;
         ping.play();
     });
 </script>
 </body>
 
 </html>
+
 
 
