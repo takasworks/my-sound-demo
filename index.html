@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mystic Forest - Immersive Experience</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <style>
+        body { margin: 0; overflow-x: hidden; background-color: #020617; color: white; font-family: 'Georgia', serif; }
+        .parallax-layer { position: fixed; top: 0; left: 0; width: 100%; height: 120vh; pointer-events: none; }
+        
+        /* 背景：遠くの城と霧 */
+        .bg-castle {
+            background: linear-gradient(to bottom, rgba(30, 27, 75, 0.7), rgba(2, 6, 23, 1)),
+                        url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&q=80&w=2000');
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+        }
+
+        /* 中景：魔法の門/大樹 */
+        .mid-gate {
+            background: url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=2000');
+            background-size: cover;
+            background-position: center;
+            mix-blend-mode: screen;
+            opacity: 0.6;
+            z-index: 2;
+        }
+
+        /* 前景：発光する植物 */
+        .fg-flora {
+            background: url('https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&q=80&w=2000');
+            background-size: cover;
+            background-position: center;
+            filter: hue-rotate(180deg) brightness(1.5);
+            mix-blend-mode: overlay;
+            z-index: 3;
+        }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center;
+            z-index: 100; transition: opacity 1s ease;
+        }
+
+        .glow-text { text-shadow: 0 0 20px rgba(147, 197, 253, 0.8); }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay" class="overlay">
+        <div class="text-center">
+            <h1 class="text-5xl mb-8 glow-text tracking-widest uppercase">Mystic Forest</h1>
+            <button id="start-btn" class="px-10 py-4 border border-blue-400 rounded-full hover:bg-blue-900 transition-all duration-500 text-blue-200 tracking-widest">
+                ENTER THE FOREST
+            </button>
+            <p class="mt-4 text-xs text-blue-400 opacity-50">※音量にご注意ください</p>
+        </div>
+    </div>
+
+    <div class="parallax-layer bg-castle" id="layer-bg"></div>
+    <div class="parallax-layer mid-gate" id="layer-mid"></div>
+    <div class="parallax-layer fg-flora" id="layer-fg"></div>
+
+    <main class="relative z-10">
+        <section class="h-[100vh] flex items-center justify-center">
+            <h2 class="text-4xl italic opacity-80">光が導く、静寂の入り口。</h2>
+        </section>
+        
+        <section class="h-[200vh] flex flex-col items-center justify-center space-y-96">
+            <div class="max-w-md p-8 bg-white/5 backdrop-blur-md rounded-lg border border-white/10 scroll-reveal">
+                <p class="text-lg leading-loose">
+                    深い霧の向こう側、かつて神々が愛した庭園。ここでは風がメロディを奏で、木々が古の記憶を語りかけます。
+                </p>
+            </div>
+            
+            <button class="magic-button px-8 py-3 bg-indigo-600/30 border border-indigo-400 rounded-lg hover:shadow-[0_0_30px_rgba(129,140,248,0.5)] transition-shadow">
+                魔法を呼び覚ます
+            </button>
+
+            <div class="max-w-md p-8 bg-white/5 backdrop-blur-md rounded-lg border border-white/10 scroll-reveal">
+                <p class="text-lg leading-loose text-right">
+                    深く、より深く。地の底に眠る神殿の鼓動が、あなたの足元から響いてくるはずです。
+                </p>
+            </div>
+        </section>
+
+        <section class="h-[100vh] flex items-center justify-center">
+            <p class="text-2xl tracking-[1em] opacity-30">ETERNAL SILENCE</p>
+        </section>
+    </main>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        // --- Web Audio API Setup ---
+        let audioCtx, oscillator, filter, lfo;
+        let isStarted = false;
+
+        const initAudio = () => {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 1. 環境音（ドローン音）の生成
+            oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            filter = audioCtx.createBiquadFilter();
+
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(55, audioCtx.currentTime); // 低いAの音
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2000, audioCtx.currentTime);
+            filter.Q.setValueAtTime(5, audioCtx.currentTime);
+
+            gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+
+            oscillator.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+        };
+
+        // 魔法の効果音（シャリィィン）
+        const playMagicSound = () => {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(2400, audioCtx.currentTime + 0.1);
+            
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            
+            osc.connect(g);
+            g.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        };
+
+        // --- Animations ---
+        const initVisuals = () => {
+            // パララックス制御
+            gsap.to("#layer-bg", {
+                y: "10%", ease: "none",
+                scrollTrigger: { scrub: true }
+            });
+
+            gsap.to("#layer-mid", {
+                y: "-15%", ease: "none",
+                scrollTrigger: { scrub: true }
+            });
+
+            gsap.to("#layer-fg", {
+                y: "-40%", ease: "none",
+                scrollTrigger: { scrub: true }
+            });
+
+            // オーディオ・フィルターの連動
+            ScrollTrigger.create({
+                trigger: "body",
+                start: "top top",
+                end: "bottom bottom",
+                scrub: true,
+                onUpdate: (self) => {
+                    if (filter) {
+                        // 1.0 (上部) -> 0.0 (下部)
+                        const p = 1 - self.progress;
+                        // スクロールに応じて2000Hz（キラキラ）から200Hz（深い響き）へ
+                        const freq = 200 + (p * 1800);
+                        filter.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+                    }
+                }
+            });
+
+            // コンテンツのフェードイン
+            gsap.utils.toArray('.scroll-reveal').forEach(el => {
+                gsap.from(el, {
+                    opacity: 0, y: 50, duration: 1.5,
+                    scrollTrigger: {
+                        trigger: el,
+                        start: "top 80%",
+                        toggleActions: "play none none reverse"
+                    }
+                });
+            });
+        };
+
+        // --- Events ---
+        document.getElementById('start-btn').addEventListener('click', () => {
+            if (!isStarted) {
+                initAudio();
+                initVisuals();
+                document.getElementById('start-overlay').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('start-overlay').style.display = 'none';
+                }, 1000);
+                isStarted = true;
+            }
+        });
+
+        // 魔法のボタンにインタラクションを追加
+        document.querySelector('.magic-button').addEventListener('mouseenter', playMagicSound);
+
+    </script>
+</body>
+</html>
